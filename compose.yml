@@ -1,0 +1,68 @@
+# lab-rl compose. Host ports and identity come from $PERSON_HOME/.lab/<name>/lab.env
+# lab.sh is the only supported way to start this.
+
+name: ${COMPOSE_PROJECT_NAME}
+
+services:
+  obs:
+    image: ${LAB_OBS_IMAGE:-lab-obs:latest}
+    restart: unless-stopped
+    hostname: obs
+    ports:
+      - "${HOST_HOMER}:8080"
+      - "${HOST_GRAFANA}:3000"
+      - "${HOST_TB}:6006"
+      - "${HOST_LOGS}:8081"
+    environment:
+      LAB_NAME: ${LAB_NAME}
+      LAB_WHO: ${LAB_WHO}
+      LAB_USER: ${LAB_USER}
+      PERSON_HOME: ${PERSON_HOME}
+      TENSORBOARD_LOGDIR: /logs
+      RL_INSIGHT_DATA: /data/rl-insight
+      HOMER_DIR: /www
+      RUNLOGS_ROOTS: /logs
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ${LAB_STATE}/homer/config.yml:/www/assets/config.yml:ro
+      - ${LAB_STATE}/rl-insight:/data/rl-insight
+      - ${PERSON_HOME}/logs:/logs/home:ro
+    shm_size: "2gb"
+    stop_grace_period: 45s
+
+  train:
+    image: ${LAB_TRAIN_IMAGE:-lab-train:latest}
+    restart: "no"
+    hostname: train
+    depends_on:
+      - obs
+    runtime: nvidia
+    gpus: all
+    ipc: host
+    shm_size: "${TRAIN_SHM_SIZE:-16gb}"
+    stdin_open: true
+    tty: true
+    working_dir: ${PERSON_HOME}
+    ports:
+      - "${HOST_RAY}:8265"
+    environment:
+      PERSON_HOME: ${PERSON_HOME}
+      HF_HOME: ${HF_HOME}
+      HF_DATASETS_CACHE: ${HF_DATASETS_CACHE:-${HF_HOME}/datasets}
+      RL_INSIGHT_SERVER_URL: http://obs:18080
+      TRAINER_LOGGER: ${TRAINER_LOGGER:-console,tensorboard,rl_insight}
+      RAY_DASHBOARD_HOST: "0.0.0.0"
+      RAY_DASHBOARD_PORT: "8265"
+      TENSORBOARD_LOGDIR: ${PERSON_HOME}/logs
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    volumes:
+      - ${PERSON_HOME}:${PERSON_HOME}
+      - ${HF_HOME}:${HF_HOME}
+    command: ["sleep", "infinity"]
+    ulimits:
+      memlock: -1
+      stack: 67108864

@@ -1,0 +1,48 @@
+# lab-obs: Homer + RL-Insight (Prometheus / Tempo / Grafana) + TensorBoard + Run logs
+# Runs as root so rootless Docker maps files to the host user.
+FROM python:3.12-slim-bookworm
+
+ARG HOMER_VERSION=v26.08.3
+ARG RL_INSIGHT_VERSION=0.2.0
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HOME=/root
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        wget \
+        unzip \
+        tini \
+        procps \
+        libfontconfig1 \
+        fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install "rl-insight==${RL_INSIGHT_VERSION}" tensorboard \
+    && rl-insight server install \
+    && rm -rf /root/.rl-insight/services/_downloads /tmp/*
+
+# Homer static site. Config is bind-mounted over /www/assets/config.yml at runtime.
+RUN mkdir -p /www \
+    && wget -q -O /tmp/homer.zip \
+        "https://github.com/bastienwirtz/homer/releases/download/${HOMER_VERSION}/homer.zip" \
+    && unzip -q /tmp/homer.zip -d /www \
+    && rm -f /tmp/homer.zip
+
+COPY obs/entrypoint.sh /opt/obs/entrypoint.sh
+COPY obs/runlogs.py /opt/obs/runlogs.py
+RUN chmod +x /opt/obs/entrypoint.sh
+
+VOLUME ["/data/rl-insight"]
+
+# 8080 Homer, 3000 Grafana, 6006 TensorBoard, 8081 Run logs
+# 18080 / 9090 / 3200 stay on the compose network (not published to the host).
+EXPOSE 8080 3000 6006 8081 18080
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/opt/obs/entrypoint.sh"]

@@ -1,0 +1,10 @@
+.lab/
+**/.lab/
+__pycache__/
+*.pyc
+.hydra/
+*.tar
+*.tar.gz
+.env
+.env.*
+!.env.example

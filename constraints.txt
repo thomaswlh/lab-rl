@@ -1,0 +1,8 @@
+torch==2.10.0+cu128
+torchvision==0.25.0+cu128
+torchaudio==2.10.0+cu128
+vllm==0.19.1
+flashinfer-python==0.6.6
+flashinfer-cubin==0.6.6
+transformers==5.8.1
+ray==2.58.0

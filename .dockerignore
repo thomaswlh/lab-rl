@@ -1,0 +1,16 @@
+.git
+.lab
+**/.lab
+docs
+*.md
+!patches/README.md
+scripts
+homer
+lab.sh
+compose.yml
+.gitignore
+.dockerignore
+__pycache__
+*.pyc
+*.tar
+*.tar.gz
