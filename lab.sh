@@ -22,7 +22,7 @@ usage() {
 lab.sh — lab-rl host helper (rootless Docker only)
 
   ./lab.sh doctor
-  ./lab.sh up [--name box] [--who lxhu] [--host 10.x.x.x]
+  ./lab.sh up [--name box] [--who alice] [--host 10.x.x.x]
   ./lab.sh exec [--name box]
   ./lab.sh train [--name box] -- <command...>
   ./lab.sh stop-train [--name box]
@@ -32,7 +32,7 @@ lab.sh — lab-rl host helper (rootless Docker only)
 
 Identity
   personal account : WHO=$USER, PERSON_HOME=$HOME
-  *_team account   : /home/jpzhao_team/lxhu/... → WHO=lxhu, PERSON_HOME=$HOME/lxhu
+  *_team account   : $HOME/alice/... → WHO=alice, PERSON_HOME=$HOME/alice
                      or pass --who
 
 Training
@@ -104,7 +104,7 @@ detect_identity() {
             fi
         fi
         if [[ -z "${WHO:-}" ]]; then
-            die "shared account ${UNIX_USER}: pass --who <id> (example: --who lxhu)"
+            die "shared account ${UNIX_USER}: pass --who <id> (example: --who alice)"
         fi
     else
         WHO="${UNIX_USER}"

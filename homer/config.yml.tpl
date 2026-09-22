@@ -10,9 +10,9 @@ connectivityCheck: true
 
 message:
   style: "is-info"
-  title: "这是 __LAB_USER__/__LAB_WHO__/__LAB_NAME__ 的栈"
+  title: "__LAB_USER__ / __LAB_WHO__ / __LAB_NAME__"
   icon: "fa fa-circle-info"
-  content: "先对名字再点卡片。Ray Dashboard 只在 GRPO 期间在线；其余看板随 obs 常驻。"
+  content: "确认实例名称后再打开卡片。Ray Dashboard 仅在 GRPO 期间可用；其余看板随观测服务常驻。"
 
 links:
   - name: "usage"
