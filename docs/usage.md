@@ -1,72 +1,72 @@
 # 用法
 
-lab-rl 面向共享 GPU 机器与 rootless Docker。镜像由一名维护者构建并导出，其余账号 `docker load`。每个实例占用一段连续端口，Homer 标题使用 `--name`，副标题带 Unix 用户、身份与端口段。
+映像檔由一個人建置並匯出，其他人 `docker load`。每個實例佔用一段連續的連接埠。Homer 標題用 `--name`，副標題帶 Unix 使用者、身分和連接埠範圍。
 
-## 宿主机准备
+## 主機準備
 
-每个需要使用 lab-rl 的 Unix 账号配置一次：
+每個 Unix 帳號設一次：
 
-1. 安装 rootless Docker：`dockerd-rootless`、用户级 `docker.service`，以及 `loginctl enable-linger $USER`。
-2. 用 `nvidia-ctk` 配置 rootless GPU：`no-cgroups`，`default-runtime: nvidia`。
-3. `/etc/subuid` 与 `/etc/subgid` 中该用户只保留一段映射。
-4. 不要把用户加入 `docker` 组，也不要使用 `/var/run/docker.sock`。
+1. 安裝 rootless Docker：`dockerd-rootless`、使用者層級的 `docker.service`，以及 `loginctl enable-linger $USER`。
+2. 用 `nvidia-ctk` 設定 rootless GPU：`no-cgroups`，`default-runtime: nvidia`。
+3. `/etc/subuid` 與 `/etc/subgid` 裡，這個使用者只留一段對應範圍。
+4. 不要把使用者加入 `docker` 群組，也不要用 `/var/run/docker.sock`。
 
-配置完成后，`./lab.sh doctor` 应能连上 `$XDG_RUNTIME_DIR/docker.sock`（或环境变量 `DOCKER_HOST` 指向的 rootless socket）。
+設完跑 `./lab.sh doctor`，它要能連上 `$XDG_RUNTIME_DIR/docker.sock`（或環境變數 `DOCKER_HOST` 指到的 rootless socket）。
 
-## 获取代码
+## 取得程式碼
 
 ```bash
 git clone https://github.com/thomaswlh/lab-rl.git
 cd lab-rl
 ```
 
-本仓库只包含编排与镜像配方。训练代码仍放在各自平时使用的路径，进入容器后 `cd` 过去。
+## 映像檔
 
-## 镜像
+rootless 的映像檔在各自的 `~/.local/share/docker`，機器上沒有一份大家共用的，所以建置一次再 `docker load`。
 
-rootless Docker 的镜像库位于各账号自己的 `~/.local/share/docker`，不能在全机共享层。因此只构建一次，再分发 tarball。
-
-维护者（需要外网与足够磁盘）：
+維護者（要有外網，磁碟也要夠）：
 
 ```bash
 bash scripts/build-images.sh
 bash scripts/export-images.sh /path/to/shared/lab-rl-images.tar.gz
 ```
 
-其余账号在 rootless daemon 已启动后：
+其他帳號等 rootless daemon 起來之後：
 
 ```bash
 docker load -i /path/to/shared/lab-rl-images.tar.gz
 ```
 
-同一 Unix 账号共用一份 rootless 镜像库，load 一次即可。不同账号或不同机器各 load 一次。
+同一個 Unix 帳號共用一份 rootless 映像檔庫，load 一次就好。不同帳號或不同機器要各 load 一次。
 
-`lab.sh` 在镜像缺失时不会自动 `compose build`。`doctor` 与 `up` 会提示先 load。
+映像檔還沒 load 時，`lab.sh` 不會自動 `compose build`。`doctor` 和 `up` 會提示先 load。
 
-构建顺序与版本锁见 [stack.md](stack.md)。必须按以下顺序：cu128 torch → vLLM 0.19.1 → `--no-deps` megatron/verl → `constraints.txt` → `patches/`。重装 Megatron 相关包后需再执行 `patches/apply.sh`，说明见 [../patches/README.md](../patches/README.md)。
+建置順序和版本鎖見 [stack.md](stack.md)。順序不能亂：cu128 torch → vLLM 0.19.1 → `--no-deps` megatron/verl → `constraints.txt` → `patches/`。重裝 Megatron 相關套件後要再執行 `patches/apply.sh`，說明見 [../patches/README.md](../patches/README.md)。
 
-## 身份
+## 身分
 
-| 场景 | `WHO` | `PERSON_HOME` | Compose 项目名 |
+個人帳號就是你自己。群組帳號（使用者名稱以 `_team` 結尾）用 `$HOME` 底下第一層目錄當人，例如 `$HOME/alice` 就是 alice。
+
+| 情境 | `WHO` | `PERSON_HOME` | Compose 專案名稱 |
 |---|---|---|---|
-| 个人账号 `alice` | `alice` | `$HOME` | `alice-box` |
-| 组账号（用户名以 `_team` 结尾），工作目录在 `$HOME/alice/...` | `alice` | `$HOME/alice` | `<unix>-alice-box` |
+| 個人帳號 `alice` | `alice` | `$HOME` | `alice-box` |
+| 群組帳號（使用者名稱以 `_team` 結尾），工作目錄在 `$HOME/alice/...` | `alice` | `$HOME/alice` | `<unix>-alice-box` |
 
-组账号从 `$PWD` 推断 `WHO`（`$HOME` 下第一级目录）。不在个人目录内启动时需显式指定：
+群組帳號從 `$PWD` 判斷 `WHO`（`$HOME` 下第一層目錄）。不在那層目錄裡啟動時，要自己加 `--who`：
 
 ```bash
 ./lab.sh up --name box --who alice
 ```
 
-`up` 把 `PERSON_HOME` 按原路径挂进训练容器，无需再指定项目文件夹。进入容器后：
+`up` 把 `PERSON_HOME` 照原路徑掛進訓練容器，不用再掛專案目錄。進容器之後：
 
 ```bash
 cd "$PERSON_HOME/workspace/your-project"
 ```
 
-实例状态写在 `$PERSON_HOME/.lab/<name>/`（端口、Homer 配置、RL-Insight 数据）。
+實例狀態寫在 `$PERSON_HOME/.lab/<name>/`（連接埠、Homer 設定、RL-Insight 資料）。
 
-Hugging Face 缓存默认规则：若存在 `$HOME/.cache/huggingface` 则使用它（便于组账号共享缓存），否则使用 `$PERSON_HOME/.cache/huggingface`。可用环境变量 `HF_HOME` 覆盖。
+Hugging Face 快取的預設：如果有 `$HOME/.cache/huggingface` 就用它（群組帳號可以共用），否則用 `$PERSON_HOME/.cache/huggingface`。可以用環境變數 `HF_HOME` 覆寫。
 
 ## 日常操作
 
@@ -76,106 +76,100 @@ Hugging Face 缓存默认规则：若存在 `$HOME/.cache/huggingface` 则使用
 ./lab.sh url --name box
 ```
 
-浏览器打开打印出的 Homer 地址。先核对标题与副标题，避免进入他人实例。
+瀏覽器打開列出的 Homer 網址。先看標題和副標題，別進錯實例。
 
-训练容器启动时全部 GPU 可见，不预占某一张卡。开训必须指定 `CUDA_VISIBLE_DEVICES`：
+容器裡看得到全部 GPU。開訓時用 `CUDA_VISIBLE_DEVICES` 選卡：
 
 ```bash
 nvidia-smi --query-gpu=index,memory.used,memory.free --format=csv
 CUDA_VISIBLE_DEVICES=2 ./lab.sh train --name box -- bash scripts/run_sft.sh
 ```
 
-未设置 `CUDA_VISIBLE_DEVICES` 时，`train` 会拒绝执行。
+沒設 `CUDA_VISIBLE_DEVICES` 時，`train` 不會跑。
 
-进入容器：
+進入容器：
 
 ```bash
 ./lab.sh exec --name box
-# 容器内
+# 容器內
 source /opt/lab/env.sh
 cd "$PERSON_HOME/workspace/your-project"
 python /opt/lab/check_env.py
 ```
 
-停止训练或整栈：
+停掉訓練，或停掉整組服務：
 
 ```bash
 ./lab.sh stop-train --name box
-./lab.sh down --name box          # 观测服务一并停止；状态与端口保留
+./lab.sh down --name box          # 監控服務一起停；狀態和連接埠留著
 ```
 
-`train` 加 `-d` 可后台运行，再用 `stop-train` 停止。
+`train` 加 `-d` 可以在背景跑，再用 `stop-train` 停掉。
 
-## 服务寿命
+## 什麼時候看得到
 
-`lab.sh up` 之后 **obs 常驻**，不依赖是否正在训练。
+`lab.sh up` 之後 obs 一直開著，跟有沒有在訓練無關。
 
-| 服务 | 寿命 | Homer |
+| 服務 | 開多久 | Homer |
 |---|---|---|
-| Homer | 随 obs | 入口本身 |
-| RL-Insight Grafana / Prometheus / Tempo | 常驻 | Grafana |
-| TensorBoard | 常驻，无训练时也可看历史 | TensorBoard |
-| Run logs | 常驻，只读 `$PERSON_HOME/logs` 与 `workspace/*/logs` | Run logs |
-| Ray Dashboard | 仅 GRPO 期间 | 标明「仅 GRPO 期间在线」 |
-| 训练进程 | `train` 才启动；SFT 不启动 Ray | — |
+| Homer | 跟 obs 一起 | 入口本身 |
+| RL-Insight Grafana / Prometheus / Tempo | 一直開著 | Grafana |
+| TensorBoard | 一直開著，沒在訓練也能看舊的 | TensorBoard |
+| Run logs | 一直開著，只讀 `$PERSON_HOME/logs` 和 `workspace/*/logs` | Run logs |
+| Ray Dashboard | 只有 GRPO 在跑的時候 | 寫著「只有 GRPO 在跑時才開」 |
+| 訓練程式 | `train` 才啟動；SFT 不啟動 Ray | — |
 
-训练容器 `restart: no`，避免机器重启后自动占卡。obs 为 `unless-stopped`。
+訓練容器是 `restart: no`，機器重新開機後不會自己佔住 GPU。obs 是 `unless-stopped`。
 
-容器内端口固定：Homer `8080`、Grafana `3000`、TensorBoard `6006`、Ray `8265`、Run logs `8081`。宿主机从 **18000** 起按 10 递增，领取连续 5 个空闲端口，并用 `flock /tmp/lab-rl-ports.lock` 避免并发冲突。需要固定端口时：
+容器裡的連接埠是固定的：Homer `8080`、Grafana `3000`、TensorBoard `6006`、Ray `8265`、Run logs `8081`。主機從 **18000** 起，每次往上 10，連拿 5 個沒人用的。`flock /tmp/lab-rl-ports.lock` 是為了避免兩個人同時拿同一個。要固定連接埠時：
 
 ```bash
 LAB_PORT_BASE=18200 ./lab.sh up --name box
 ```
 
-不要把宿主机端口写死为 `8080` / `3000` 等常见占用端口。
+不要把主機連接埠寫成 `8080` 或 `3000`，那些常常已經有人在用。
 
-## 观测接入
+## 監控怎麼接
 
-本仓库不修改外部训练脚本。容器会注入下列环境变量，训练项目按需读取：
+容器會設這些環境變數：
 
-| 变量 | 默认 | 含义 |
+| 變數 | 預設 | 意思 |
 |---|---|---|
-| `RL_INSIGHT_SERVER_URL` | `http://obs:18080` | 训练进程走 compose DNS，与宿主机映射无关 |
+| `RL_INSIGHT_SERVER_URL` | `http://obs:18080` | 訓練程式走 compose DNS，跟主機上的連接埠對應無關 |
 | `TRAINER_LOGGER` | `console,tensorboard,rl_insight` | verl logger 列表 |
-| `RAY_DASHBOARD_HOST` / `PORT` | `0.0.0.0` / `8265` | GRPO 中 Ray 需绑定该地址，Homer 才能打开 |
-| `TENSORBOARD_LOGDIR` | `$PERSON_HOME/logs` | TensorBoard 扫描目录 |
-| `HF_HOME` | 见上文 | Hugging Face 缓存 |
+| `RAY_DASHBOARD_HOST` / `PORT` | `0.0.0.0` / `8265` | GRPO 時 Ray 要綁這個位址，Homer 才開得了 |
+| `TENSORBOARD_LOGDIR` | `$PERSON_HOME/logs` | TensorBoard 掃描的目錄 |
+| `HF_HOME` | 見上面 | Hugging Face 快取 |
 
-verl 侧若要启用 RL-Insight，在训练项目中设置 `trainer.logger='[console,tensorboard,rl_insight]'`。这不属于 lab-rl 的改动范围。
+verl 裡要把 `trainer.logger` 寫成含 `rl_insight`。在訓練專案裡改：`trainer.logger='[console,tensorboard,rl_insight]'`。
 
-Grafana 默认匿名 Viewer（内网、无认证）。Ray Dashboard 在 GRPO 期间同样开放。
+Grafana 預設是匿名 Viewer（實驗室網路、不用登入）。Ray Dashboard 在 GRPO 期間也同樣開著。
 
-额外日志目录：
+另外的記錄目錄：
 
 ```bash
 LAB_LOG_DIRS=/path/a/logs:/path/b/logs ./lab.sh up --name box
 ```
 
-## 校外访问
+不起 Web Shell：機器是大家共用的，頁面沒有登入。不再另外起一份 vLLM。GRPO 裡的 vLLM 是 process 裡面的 engine，多起一份會佔住 GPU。不接 Loki / ELK。
 
-Homer 监听实验室内网。在外网时：
+## 人在校外
+
+Homer 聽的是實驗室網路。人在外面時：
 
 ```bash
 ./lab.sh url --name box
 ```
 
-按输出的 `ssh -L` 做本地转发，然后在浏览器打开 `http://127.0.0.1:<Homer口>`。
+照輸出的 `ssh -L` 轉到自己電腦，然後用瀏覽器打開 `http://127.0.0.1:<Homer口>`。
 
-隧道建立后，Homer 卡片仍可能写宿主机 IP。若打不开，将 URL 中的 host 改为 `127.0.0.1`，端口不变。也可以在 `up` 时指定 `--host 127.0.0.1`（仅适合本人走隧道）。
+通道建立後，Homer 卡片仍可能寫主機 IP。打不開就把 host 改成 `127.0.0.1`，連接埠不動。也可以在 `up` 時加 `--host 127.0.0.1`（只適合自己走通道）。
 
 ## doctor
 
-- 只连接 `DOCKER_HOST` 或 `$XDG_RUNTIME_DIR/docker.sock`，不会回落到 `/var/run/docker.sock`
-- 检查 `lab-train:latest` 与 `lab-obs:latest` 是否已 load
-- 检查宿主机 `nvidia-smi`
-- 检查 linger 是否开启
+- 只連 `DOCKER_HOST` 或 `$XDG_RUNTIME_DIR/docker.sock`，不會改去連 `/var/run/docker.sock`
+- 檢查 `lab-train:latest` 和 `lab-obs:latest` 有沒有 load
+- 檢查主機上的 `nvidia-smi`
+- 檢查 linger 有沒有開
 
-镜像构建只做 CPU import（`check_env.py --cpu-only`）。GPU 自检在 `doctor` 或进入容器之后进行。
-
-## 明确不做（v1）
-
-- Web Shell（共享机器、无认证）
-- 独立 vLLM Playground / Control（GRPO 内的 vLLM 是进程内 engine，再起一份会抢卡）
-- Loki / ELK
-- 将用户加入 `docker` 组
-- 日常由 `lab.sh` 构建镜像（体积约 40GB，按人数复制会占满磁盘）
+映像檔建置只做 CPU import（`check_env.py --cpu-only`）。GPU 自己測是在 `doctor` 或進容器之後。
